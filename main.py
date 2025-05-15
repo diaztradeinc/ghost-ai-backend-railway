@@ -1,13 +1,12 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
+import requests
 import os
 
 app = FastAPI()
 
-# Allow requests from anywhere or set your frontend domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,23 +15,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class GenerateRequest(BaseModel):
+class GenerationRequest(BaseModel):
     prompt: str
-    negative_prompt: str = None
-    steps: int = 30
-    cfg_scale: float = 7.0
-    seed: int = None
+    negative_prompt: str | None = None
     width: int = 512
     height: int = 512
+    steps: int = 30
+    cfg_scale: float = 7.0
+    seed: int | None = None
 
 @app.post("/generate")
-async def generate_image(req: GenerateRequest):
-    api_key = os.getenv("STABILITY_API_KEY")
-    if not api_key:
-        return {"error": "API key missing"}
+async def generate(req: GenerationRequest):
+    headers = {
+        "Authorization": f"Bearer {os.getenv('STABILITY_API_KEY', '')}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
 
     payload = {
-        "model": "stable-diffusion-xl-beta",
+        "model": "stable-diffusion-v1-5",
         "prompt": req.prompt,
         "negative_prompt": req.negative_prompt,
         "steps": req.steps,
@@ -40,27 +41,20 @@ async def generate_image(req: GenerateRequest):
         "seed": req.seed,
         "width": req.width,
         "height": req.height,
+        "samples": 1,
         "output_format": "base64"
     }
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://api.stability.ai/v2beta/stable-image/generate",
-            json=payload,
-            headers=headers
+    try:
+        response = requests.post(
+            "https://api.stability.ai/v1/generation/stable-diffusion-v1-5/text-to-image",
+            headers=headers,
+            json=payload
         )
-
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": f"{response.status_code} {response.text}"}
-
-@app.get("/")
-def root():
-    return {"message": "Ghost AI Backend Ready"}
+        response.raise_for_status()
+        data = response.json()
+        print("API response:", data)
+        return data
+    except Exception as e:
+        print("Error generating image:", str(e))
+        return {"error": str(e), "artifacts": []}
