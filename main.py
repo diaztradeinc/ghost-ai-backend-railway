@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 import os
-import json
+import base64
 
 app = FastAPI()
 
@@ -18,63 +18,35 @@ app.add_middleware(
 
 class GenerationRequest(BaseModel):
     prompt: str
-    negative_prompt: str | None = None
-    width: int = 512
-    height: int = 512
-    steps: int = 30
-    cfg_scale: float = 7.0
-    seed: int | None = None
+    output_format: str = "webp"
 
 @app.post("/generate")
 async def generate(req: GenerationRequest):
     headers = {
         "Authorization": f"Bearer {os.getenv('STABILITY_API_KEY', '')}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Accept": "image/*"
     }
-
-    payload = {
-        "model": "stable-diffusion-xl-v1",
-        "prompt": req.prompt,
-        "steps": req.steps,
-        "cfg_scale": req.cfg_scale,
-        "width": req.width,
-        "height": req.height,
-        "samples": 1,
-        "output_format": "base64"
-    }
-
-    if req.negative_prompt:
-        payload["negative_prompt"] = req.negative_prompt
-    if req.seed is not None:
-        payload["seed"] = req.seed
-
-    log_block = "\n========== Stability API v2beta Request =========="
-    log_block += "\n📤 Payload:\n" + json.dumps(payload, indent=2)
 
     try:
         response = requests.post(
-            "https://api.stability.ai/v2beta/stable-image/generate",
+            "https://api.stability.ai/v2beta/stable-image/generate/ultra",
             headers=headers,
-            json=payload
+            files={"none": ""},
+            data={
+                "prompt": req.prompt,
+                "output_format": req.output_format
+            }
         )
-        log_block += f"\n📥 Status: {response.status_code}"
-        log_block += f"\n📥 Response Body:\n{response.text}"
-        response.raise_for_status()
-        print(log_block)
-        return response.json()
 
-    except requests.exceptions.HTTPError as http_err:
-        log_block += "\n❌ HTTP Error:\n" + str(http_err)
-        log_block += "\n📥 Response Body:\n" + response.text
-        print(log_block)
+        if response.status_code == 200:
+            img_base64 = base64.b64encode(response.content).decode("utf-8")
+            return { "image_base64": img_base64 }
+
         return {
-            "error": str(http_err),
+            "error": f"Generation failed",
             "status_code": response.status_code,
-            "body": response.text
+            "body": response.json()
         }
 
     except Exception as e:
-        log_block += "\n❌ General Error:\n" + str(e)
-        print(log_block)
-        return {"error": str(e)}
+        return { "error": str(e) }
