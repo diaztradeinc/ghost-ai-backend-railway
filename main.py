@@ -54,7 +54,7 @@ async def generate(req: GenerationRequest):
 
     try:
         response = requests.post(
-            "https://api.stability.ai/v2beta/image/generate",
+            "https://api.stability.ai/v2beta/stable-image/generate",
             headers=headers,
             json=payload
         )
