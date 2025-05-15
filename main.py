@@ -33,18 +33,23 @@ async def generate(req: GenerationRequest):
         "Accept": "application/json"
     }
 
+    text_prompts = [{"text": req.prompt}]
+    if req.negative_prompt:
+        text_prompts.append({"text": req.negative_prompt, "weight": -1})
+
     payload = {
         "model": "stable-diffusion-v1-5",
-        "prompt": req.prompt,
-        "negative_prompt": req.negative_prompt,
+        "text_prompts": text_prompts,
         "steps": req.steps,
         "cfg_scale": req.cfg_scale,
-        "seed": req.seed,
         "width": req.width,
         "height": req.height,
         "samples": 1,
         "output_format": "base64"
     }
+
+    if req.seed is not None:
+        payload["seed"] = req.seed
 
     log_block = "\n========== Stability API Request =========="
     log_block += "\n📤 Payload:\n" + json.dumps(payload, indent=2)
