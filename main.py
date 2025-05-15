@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
@@ -7,18 +7,15 @@ import os
 
 app = FastAPI()
 
-# CORS for frontend on Netlify or localhost
-dev_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
-
+# Allow requests from anywhere or set your frontend domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[dev_origin],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Define request model
 class GenerateRequest(BaseModel):
     prompt: str
     negative_prompt: str = None
