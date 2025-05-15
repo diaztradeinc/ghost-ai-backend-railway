@@ -33,13 +33,9 @@ async def generate(req: GenerationRequest):
         "Accept": "application/json"
     }
 
-    text_prompts = [{"text": req.prompt}]
-    if req.negative_prompt:
-        text_prompts.append({"text": req.negative_prompt, "weight": -1})
-
     payload = {
-        "model": "stable-diffusion-v1-5",
-        "text_prompts": text_prompts,
+        "model": "stable-diffusion-xl-v1",
+        "prompt": req.prompt,
         "steps": req.steps,
         "cfg_scale": req.cfg_scale,
         "width": req.width,
@@ -48,15 +44,17 @@ async def generate(req: GenerationRequest):
         "output_format": "base64"
     }
 
+    if req.negative_prompt:
+        payload["negative_prompt"] = req.negative_prompt
     if req.seed is not None:
         payload["seed"] = req.seed
 
-    log_block = "\n========== Stability API Request =========="
+    log_block = "\n========== Stability API v2beta Request =========="
     log_block += "\n📤 Payload:\n" + json.dumps(payload, indent=2)
 
     try:
         response = requests.post(
-            "https://api.stability.ai/v1/generation/stable-diffusion-v1-5/text-to-image",
+            "https://api.stability.ai/v2beta/stable-image/generate",
             headers=headers,
             json=payload
         )
